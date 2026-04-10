@@ -537,28 +537,45 @@
         function showRightPanel(view) { /* unchanged */ }
         function attachSortHandlers() { /* unchanged */ }
 
-        async function loadDefaultJSON() {
-            try {
-                const response = await fetch('pairings.json');
-                if (!response.ok) throw new Error('File not found');
-                const jsonData = await response.json();
+async function loadDefaultJSON() {
+    try {
+        const response = await fetch('pairings.json');
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        
+        const jsonData = await response.json();
+        
+        // Support both possible structures: { "pairings": [...] } or direct array
+        const pairingsArray = jsonData.pairings || jsonData;
 
-                allPairingsByBase = {};
-                
-                jsonData.pairings.forEach(pairing => {
-                    restructurePairing(pairing);
-                    pairing.computedEndDate = computeEndDate(pairing);
-                    computeOperatingDaysByStart(pairing);
-                    if (!allPairingsByBase[pairing.base]) allPairingsByBase[pairing.base] = [];
-                    allPairingsByBase[pairing.base].push(pairing);
-                });
-
-                renderBaseButtons();
-            } catch (err) {
-                console.error(err);
-                alert('ERROR: Could not load pairings.json');
+        allPairingsByBase = {};
+        
+        pairingsArray.forEach(pairing => {
+            restructurePairing(pairing);
+            pairing.computedEndDate = computeEndDate(pairing);
+            computeOperatingDaysByStart(pairing);
+            
+            if (!allPairingsByBase[pairing.base]) {
+                allPairingsByBase[pairing.base] = [];
             }
-        }
+            allPairingsByBase[pairing.base].push(pairing);
+        });
+
+        renderBaseButtons();
+        console.log('%c✅ Successfully loaded ' + pairingsArray.length + ' pairings', 'color:#00FF00');
+        
+    } catch (err) {
+        console.error(err);
+        const msg = document.createElement('div');
+        msg.style.cssText = 'background:#330000;color:#FF6666;padding:20px;margin:20px;border:3px solid #FF0000;font-size:18px;';
+        msg.innerHTML = `
+            <strong>ERROR: Could not load pairings.json</strong><br><br>
+            ${err.message}<br><br>
+            Make sure the file is named <strong>exactly</strong> "pairings.json" 
+            and is in the root of the repository.
+        `;
+        document.body.appendChild(msg);
+    }
+}
 
         window.onload = function() {
             attachSortHandlers();
