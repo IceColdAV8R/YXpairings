@@ -49,7 +49,6 @@
             overflow: hidden;
         }
         
-        /* Desktop: 50/50 split */
         #selection-pane {
             width: 50%;
             background: var(--dark);
@@ -66,52 +65,13 @@
             overflow: hidden;
         }
         
-        /* ===================== MOBILE OPTIMIZATIONS ===================== */
         @media (max-width: 767px) {
-            #main-content {
-                flex-direction: column;           /* Stack vertically on phones */
-            }
-            
-            #selection-pane,
-            #right-panel {
-                width: 100% !important;           /* Full width */
-                border-right: none;
-                border-bottom: 4px double var(--green);
-            }
-            
-            /* Make table scrollable horizontally on small screens */
-            #table-container {
-                overflow-x: auto;
-            }
-            
-            /* Larger tap targets */
-            td, th {
-                padding: 10px 8px;
-                font-size: 16px;
-            }
-            
-            /* Compact calendar on mobile */
-            #calendar-grid {
-                font-size: 14px;
-                gap: 1px;
-            }
-            
-            .calendar-day {
-                min-height: 38px;
-                padding: 8px 2px;
-            }
-            
-            /* Larger toggle buttons */
-            .toggle-btn {
-                padding: 14px 10px;
-                font-size: 17px;
-            }
-            
-            /* Better length button wrapping */
-            #length-buttons button {
-                padding: 8px 14px;
-                font-size: 16px;
-            }
+            #main-content { flex-direction: column; }
+            #selection-pane, #right-panel { width: 100% !important; border-right: none; border-bottom: 4px double var(--green); }
+            #table-container { overflow-x: auto; }
+            td, th { padding: 10px 8px; font-size: 16px; }
+            .calendar-day { min-height: 38px; padding: 8px 2px; }
+            .toggle-btn { padding: 14px 10px; font-size: 17px; }
         }
         
         #selection-header {
@@ -130,7 +90,7 @@
             border-collapse: collapse;
             font-size: 17px;
             table-layout: fixed;
-            min-width: 600px; /* forces horizontal scroll on mobile */
+            min-width: 600px;
         }
         
         th {
@@ -174,7 +134,6 @@
             color: var(--green);
             border: none;
             cursor: pointer;
-            transition: all 0.1s;
         }
         
         .toggle-btn.active {
@@ -337,10 +296,18 @@
             padding: 60px 20px;
             font-size: 24px;
         }
+        
+        .error-box {
+            background: #330000;
+            color: #FF6666;
+            padding: 20px;
+            margin: 20px;
+            border: 3px solid #FF0000;
+            font-size: 18px;
+        }
     </style>
 </head>
 <body>
-    <!-- [All HTML content is identical to the previous version – only CSS changes were added] -->
     <div class="dos-header">
         <div class="title">PAIRINGS VIEWER</div>
     </div>
@@ -424,7 +391,6 @@
     </div>
 
     <script>
-        // [All JavaScript from the previous working version remains unchanged]
         let allPairingsByBase = {};
         let activeBase = null;
         let currentPairings = [];
@@ -519,70 +485,390 @@
             });
         }
 
-        // ... [All remaining functions are identical to the last working version] ...
-
-        function renderBaseButtons() { /* unchanged */ }
-        function initializeFiltersForBase() { /* unchanged */ }
-        function updateModeButtons() { /* unchanged */ }
-        function renderCalendar() { /* unchanged */ }
-        function toggleDateSelection(dateStr) { /* unchanged */ }
-        function prevMonth() { /* unchanged */ }
-        function nextMonth() { /* unchanged */ }
-        function renderLengthButtons() { /* unchanged */ }
-        function setDateMode(mode) { /* unchanged */ }
-        function clearFilters() { /* unchanged */ }
-        function applyFilters() { /* unchanged */ }
-        function renderPairingsTable() { /* unchanged */ }
-        function renderDetails(pairing) { /* unchanged */ }
-        function showRightPanel(view) { /* unchanged */ }
-        function attachSortHandlers() { /* unchanged */ }
-
-async function loadDefaultJSON() {
-    try {
-        const response = await fetch('pairings.json');
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        
-        const jsonData = await response.json();
-        
-        // Support both possible structures: { "pairings": [...] } or direct array
-        const pairingsArray = jsonData.pairings || jsonData;
-
-        allPairingsByBase = {};
-        
-        pairingsArray.forEach(pairing => {
-            restructurePairing(pairing);
-            pairing.computedEndDate = computeEndDate(pairing);
-            computeOperatingDaysByStart(pairing);
+        function renderBaseButtons() {
+            const container = document.getElementById('base-buttons');
+            container.innerHTML = '';
             
-            if (!allPairingsByBase[pairing.base]) {
-                allPairingsByBase[pairing.base] = [];
-            }
-            allPairingsByBase[pairing.base].push(pairing);
-        });
+            Object.keys(allPairingsByBase).sort().forEach(base => {
+                const btn = document.createElement('button');
+                btn.className = 'base-button';
+                btn.textContent = base;
+                btn.onclick = () => {
+                    document.querySelectorAll('.base-button').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    document.getElementById('active-base-display').textContent = base;
+                    activeBase = base;
+                    currentPairings = [...(allPairingsByBase[base] || [])];
+                    activePairingIndex = -1;
+                    sortColumn = null;
+                    initializeFiltersForBase();
+                    renderPairingsTable();
+                    renderDetails(null);
+                };
+                container.appendChild(btn);
+            });
 
-        renderBaseButtons();
-        console.log('%c✅ Successfully loaded ' + pairingsArray.length + ' pairings', 'color:#00FF00');
-        
-    } catch (err) {
-        console.error(err);
-        const msg = document.createElement('div');
-        msg.style.cssText = 'background:#330000;color:#FF6666;padding:20px;margin:20px;border:3px solid #FF0000;font-size:18px;';
-        msg.innerHTML = `
-            <strong>ERROR: Could not load pairings.json</strong><br><br>
-            ${err.message}<br><br>
-            Make sure the file is named <strong>exactly</strong> "pairings.json" 
-            and is in the root of the repository.
-        `;
-        document.body.appendChild(msg);
-    }
-}
+            if (allPairingsByBase['BOS']) {
+                const bosBtn = Array.from(container.children).find(b => b.textContent === 'BOS');
+                if (bosBtn) bosBtn.click();
+            } else if (Object.keys(allPairingsByBase).length > 0) {
+                container.children[0].click();
+            }
+        }
+
+        function initializeFiltersForBase() {
+            if (currentPairings.length > 0 && currentPairings[0].operatingDates && currentPairings[0].operatingDates.length > 0) {
+                const firstDate = currentPairings[0].operatingDates[0];
+                const mStr = firstDate.substring(0, 3).toUpperCase();
+                currentViewedMonth = monthMap[mStr] || 3;
+            }
+            
+            updateModeButtons();
+            renderCalendar();
+            renderLengthButtons();
+            applyFilters();
+        }
+
+        function updateModeButtons() {
+            const startBtn = document.getElementById('mode-start-btn');
+            const endBtn = document.getElementById('mode-end-btn');
+            const notBtn = document.getElementById('mode-not-btn');
+            
+            startBtn.style.background = dateFilterMode === 'start' ? '#00FF41' : '#003300';
+            startBtn.style.color = dateFilterMode === 'start' ? '#000' : 'var(--green)';
+            endBtn.style.background = dateFilterMode === 'end' ? '#00FF41' : '#003300';
+            endBtn.style.color = dateFilterMode === 'end' ? '#000' : 'var(--green)';
+            notBtn.style.background = dateFilterMode === 'not' ? '#00FF41' : '#003300';
+            notBtn.style.color = dateFilterMode === 'not' ? '#000' : 'var(--green)';
+        }
+
+        function renderCalendar() {
+            const container = document.getElementById('calendar-grid');
+            container.innerHTML = '';
+            
+            const headers = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+            headers.forEach(h => {
+                const el = document.createElement('div');
+                el.style.fontWeight = 'bold';
+                el.style.background = '#002200';
+                el.style.padding = '4px';
+                el.textContent = h;
+                container.appendChild(el);
+            });
+            
+            const firstOfMonth = new Date(currentViewedYear, currentViewedMonth, 1);
+            const daysInMonth = new Date(currentViewedYear, currentViewedMonth + 1, 0).getDate();
+            let startWeekday = firstOfMonth.getDay();
+            
+            for (let i = 0; i < startWeekday; i++) {
+                const empty = document.createElement('div');
+                empty.className = 'calendar-day other-month';
+                container.appendChild(empty);
+            }
+            
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dateStr = monthNames[currentViewedMonth] + String(day).padStart(2, '0');
+                const el = document.createElement('div');
+                el.className = 'calendar-day';
+                el.textContent = day;
+                
+                if (selectedFilterDates.includes(dateStr)) el.classList.add('selected');
+                
+                el.onclick = () => toggleDateSelection(dateStr);
+                container.appendChild(el);
+            }
+            
+            document.getElementById('calendar-title').textContent = `${monthNames[currentViewedMonth]} ${currentViewedYear}`;
+        }
+
+        function toggleDateSelection(dateStr) {
+            const idx = selectedFilterDates.indexOf(dateStr);
+            if (idx === -1) selectedFilterDates.push(dateStr);
+            else selectedFilterDates.splice(idx, 1);
+            renderCalendar();
+            applyFilters();
+        }
+
+        function prevMonth() {
+            currentViewedMonth--;
+            if (currentViewedMonth < 0) { currentViewedMonth = 11; currentViewedYear--; }
+            renderCalendar();
+        }
+
+        function nextMonth() {
+            currentViewedMonth++;
+            if (currentViewedMonth > 11) { currentViewedMonth = 0; currentViewedYear++; }
+            renderCalendar();
+        }
+
+        function renderLengthButtons() {
+            const container = document.getElementById('length-buttons');
+            container.innerHTML = '';
+            for (let len = 1; len <= 6; len++) {
+                const btn = document.createElement('button');
+                btn.textContent = len + 'd';
+                btn.style.padding = '6px 12px';
+                btn.style.fontSize = '17px';
+                btn.style.background = '#001100';
+                btn.style.border = '2px solid var(--green)';
+                btn.style.color = 'var(--green)';
+                btn.style.cursor = 'pointer';
+                btn.onclick = () => {
+                    const idx = selectedLengths.indexOf(len);
+                    if (idx === -1) {
+                        selectedLengths.push(len);
+                        btn.style.background = '#00FF41';
+                        btn.style.color = '#000000';
+                    } else {
+                        selectedLengths.splice(idx, 1);
+                        btn.style.background = '#001100';
+                        btn.style.color = 'var(--green)';
+                    }
+                    applyFilters();
+                };
+                container.appendChild(btn);
+            }
+        }
+
+        function setDateMode(mode) {
+            dateFilterMode = mode;
+            updateModeButtons();
+            applyFilters();
+        }
+
+        function clearFilters() {
+            selectedFilterDates = [];
+            selectedLengths = [];
+            dateFilterMode = 'start';
+            updateModeButtons();
+            renderCalendar();
+            renderLengthButtons();
+            applyFilters();
+        }
+
+        function applyFilters() {
+            filteredPairings = currentPairings.filter(pairing => {
+                if (selectedLengths.length > 0 && !selectedLengths.includes(pairing.length)) return false;
+                
+                if (selectedFilterDates.length > 0) {
+                    if (dateFilterMode === 'start') {
+                        const startDate = pairing.operatingDates?.[0] || '';
+                        if (!selectedFilterDates.includes(startDate)) return false;
+                    } else if (dateFilterMode === 'end') {
+                        const endDate = pairing.computedEndDate || '';
+                        if (!selectedFilterDates.includes(endDate)) return false;
+                    } else if (dateFilterMode === 'not') {
+                        const map = pairing.operatingDaysByStart || {};
+                        let hasSafeInstance = false;
+                        for (const daysArray of Object.values(map)) {
+                            const touchesForbidden = daysArray.some(d => selectedFilterDates.includes(d));
+                            if (!touchesForbidden) {
+                                hasSafeInstance = true;
+                                break;
+                            }
+                        }
+                        if (!hasSafeInstance) return false;
+                    }
+                }
+                return true;
+            });
+            
+            renderPairingsTable();
+        }
+
+        function renderPairingsTable() {
+            const tbody = document.getElementById('pairings-tbody');
+            tbody.innerHTML = '';
+
+            let sorted = [...(filteredPairings.length > 0 ? filteredPairings : currentPairings)];
+            if (sortColumn) {
+                sorted.sort((a, b) => {
+                    let valA, valB;
+                    switch (sortColumn) {
+                        case 'code':   valA = a.code || ''; valB = b.code || ''; break;
+                        case 'report': valA = a.reportTime || ''; valB = b.reportTime || ''; break;
+                        case 'release':valA = getReleaseTime(a); valB = getReleaseTime(b); break;
+                        case 'length': valA = a.length || 0; valB = b.length || 0; break;
+                        case 'credit': valA = parseInt(a.totals?.TrCDT) || 0; valB = parseInt(b.totals?.TrCDT) || 0; break;
+                    }
+                    if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
+                    if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
+                    return 0;
+                });
+            }
+
+            sorted.forEach((pairing, idx) => {
+                const row = document.createElement('tr');
+                if (idx === activePairingIndex) row.classList.add('active');
+
+                const release = getReleaseTime(pairing);
+                const credit = formatHHMM(pairing.totals?.TrCDT);
+
+                row.innerHTML = `
+                    <td>${pairing.code || '—'}</td>
+                    <td>${pairing.reportTime || '—'}</td>
+                    <td>${release}</td>
+                    <td>${pairing.length} days</td>
+                    <td>${credit}</td>
+                `;
+
+                row.onclick = () => {
+                    activePairingIndex = idx;
+                    renderPairingsTable();
+                    showRightPanel('details');
+                    renderDetails(pairing);
+                };
+                tbody.appendChild(row);
+            });
+
+            const countEl = document.getElementById('pairing-count');
+            countEl.textContent = `${sorted.length} PAIRINGS LOADED`;
+            if (filteredPairings.length > 0 && filteredPairings.length < currentPairings.length) {
+                countEl.textContent += ` (filtered)`;
+            }
+        }
+
+        function renderDetails(pairing) {
+            const container = document.getElementById('details-content');
+            if (!pairing) {
+                container.innerHTML = `<div class="empty"><pre>NO PAIRING SELECTED</pre></div>`;
+                return;
+            }
+
+            let html = `
+                <div class="section">
+                    ${pairing.code} &nbsp; REPORT ${pairing.reportTime} &nbsp; RELEASE ${getReleaseTime(pairing)} 
+                    <div>${pairing.length} Day trip starting ${pairing.operatingDates ? pairing.operatingDates.join(', ') : '—'}</div>
+                    <div>Credit: ${formatHHMM(pairing.totals?.TrCDT)}</div>
+                    <div>Block: ${formatHHMM(pairing.totals?.TrBLK)}</div>
+                    <div>DHD: ${formatHHMM(pairing.totals?.TrDHD)}</div>
+                    <div>RIG: ${formatHHMM(pairing.totals?.TrRIG)}</div>
+                    <div>TAFB: ${formatHHMM(pairing.totals?.TAFB)}</div>
+                </div>
+
+                <div class="section">`;
+
+            let currentReport = pairing.reportTime;
+
+            pairing.days.forEach((day) => {
+                if (day.isStandover) {
+                    if (day.dayEnd && day.dayEnd.REPT) currentReport = day.dayEnd.REPT;
+                    return;
+                }
+
+                html += `<div style="margin-bottom:28px;">`;
+                html += `<div class="day-header">`;
+                html += `DAY: ${day.dayKey}`;
+                html += `<div>REP/RLS: ${currentReport} / ${day.dayEnd.DEND}</div>`;
+                html += `<div>FDP/Limit: ${day.dayEnd.FDP} / ${day.dayEnd.FDPlim}</div>`;
+                html += `</div>`;
+
+                if (day.legs && day.legs.length > 0) {
+                    html += `<table class="leg-table"><thead><tr>
+                        <th>FLT</th><th>DEP</th><th>ARR</th><th>DEP</th><th>ARR</th><th>BLOCK</th><th>GRNT</th>
+                    </tr></thead><tbody>`;
+                    
+                    day.legs.forEach(leg => {
+                        const isDH = leg.DH ? ' (DH)' : '';
+                        html += `<tr>
+                            <td>${leg.FLTN}${isDH}</td>
+                            <td>${leg.DPS}</td>
+                            <td>${leg.ARS}</td>
+                            <td>${leg.DEPL}</td>
+                            <td>${leg.ARRL}</td>
+                            <td>${formatHHMM(leg.BLKT)}</td>
+                            <td>${formatHHMM(leg.GRNT)}</td>
+                        </tr>`;
+                    });
+                    html += `</tbody></table>`;
+                }
+
+                if (day.layover) {
+                    const layoverLength = formatHHMM(day.layover.length);
+                    html += `
+                        <div class="layover-info">
+                            Layover ${layoverLength} 
+                            @ ${day.layover.city || '—'} 
+                            ${day.layover.hotel ? `(${day.layover.hotel})` : ''}
+                        </div>`;
+                }
+                
+                html += `</div>`;
+
+                if (day.dayEnd && day.dayEnd.REPT) currentReport = day.dayEnd.REPT;
+            });
+
+            html += `</div>`;
+            container.innerHTML = html;
+        }
+
+        function showRightPanel(view) {
+            currentRightView = view;
+            document.getElementById('filter-view').style.display = view === 'filters' ? 'flex' : 'none';
+            document.getElementById('details-view').style.display = view === 'details' ? 'block' : 'none';
+            
+            document.getElementById('toggle-filters').classList.toggle('active', view === 'filters');
+            document.getElementById('toggle-details').classList.toggle('active', view === 'details');
+        }
+
+        function attachSortHandlers() {
+            const headers = document.querySelectorAll('#pairings-table th');
+            headers.forEach(th => {
+                th.addEventListener('click', () => {
+                    const column = th.getAttribute('data-column');
+                    if (sortColumn === column) {
+                        sortDirection = (sortDirection === 'asc') ? 'desc' : 'asc';
+                    } else {
+                        sortColumn = column;
+                        sortDirection = 'asc';
+                    }
+                    headers.forEach(h => h.classList.remove('sort-asc', 'sort-desc'));
+                    th.classList.add(sortDirection === 'asc' ? 'sort-asc' : 'sort-desc');
+                    renderPairingsTable();
+                });
+            });
+        }
+
+        async function loadDefaultJSON() {
+            try {
+                const response = await fetch('pairings.json');
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                
+                const jsonData = await response.json();
+                const pairingsArray = jsonData.pairings || jsonData;   // Support both structures
+                
+                allPairingsByBase = {};
+                
+                pairingsArray.forEach(pairing => {
+                    restructurePairing(pairing);
+                    pairing.computedEndDate = computeEndDate(pairing);
+                    computeOperatingDaysByStart(pairing);
+                    if (!allPairingsByBase[pairing.base]) allPairingsByBase[pairing.base] = [];
+                    allPairingsByBase[pairing.base].push(pairing);
+                });
+
+                renderBaseButtons();
+                console.log('%c✅ Loaded ' + pairingsArray.length + ' pairings from pairings.json', 'color:#00FF00');
+            } catch (err) {
+                console.error(err);
+                const msg = document.createElement('div');
+                msg.className = 'error-box';
+                msg.innerHTML = `
+                    <strong>ERROR: Could not load pairings.json</strong><br><br>
+                    ${err.message}<br><br>
+                    Make sure the file is named <strong>exactly</strong> "pairings.json" 
+                    and is in the root of the repository.
+                `;
+                document.body.appendChild(msg);
+            }
+        }
 
         window.onload = function() {
             attachSortHandlers();
             loadDefaultJSON();
             showRightPanel('filters');
             
-            console.log('%cPAIRINGS VIEWER v2.4 — Fully responsive (mobile optimized)', 'color:#00FF00; background:#000000; padding:4px 8px;');
+            console.log('%cPAIRINGS VIEWER v2.4 — Ready', 'color:#00FF00; background:#000000; padding:4px 8px;');
         };
     </script>
 </body>
