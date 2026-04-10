@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PAIRINGS VIEWER v2.4</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
@@ -12,7 +12,11 @@
             --dark: #000000;
         }
         
-        * { margin:0; padding:0; box-sizing:border-box; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
         
         body {
             background: var(--dark);
@@ -20,10 +24,10 @@
             font-family: 'Courier New', Courier, monospace;
             font-size: 17px;
             line-height: 1.35;
+            overflow: hidden;
             height: 100vh;
             display: flex;
             flex-direction: column;
-            overflow: hidden;
         }
         
         .dos-header {
@@ -31,8 +35,12 @@
             color: var(--green);
             padding: 8px 16px;
             border-bottom: 4px solid var(--green);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
             font-size: 22px;
-            text-align: center;
+            letter-spacing: 2px;
+            text-shadow: 0 0 8px var(--green);
         }
         
         #main-content {
@@ -41,27 +49,13 @@
             overflow: hidden;
         }
         
-        /* Desktop Layout */
-        #selection-pane { width: 50%; border-right: 4px double var(--green); }
-        #right-panel { width: 50%; }
-        
-        /* Mobile Layout - Vertical Stack */
-        @media (max-width: 900px) {
-            #main-content { flex-direction: column; }
-            #selection-pane, #right-panel { width: 100% !important; border-right: none; border-bottom: 4px double var(--green); }
-            
-            /* Balanced height distribution */
-            #selection-pane { max-height: 45vh; }
-            #right-panel { flex: 1; min-height: 55vh; }
-            
-            /* Better table scrolling on mobile */
-            #table-container { overflow-x: auto; }
-            table { min-width: 620px; }
-            
-            /* Larger touch targets */
-            td, th { padding: 12px 8px; font-size: 16px; }
-            .calendar-day { min-height: 42px; padding: 10px 4px; font-size: 15px; }
-            .toggle-btn { padding: 14px 10px; font-size: 17px; }
+        #selection-pane {
+            width: 50%;
+            background: var(--dark);
+            border-right: 4px double var(--green);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
         }
         
         #selection-header {
@@ -70,7 +64,11 @@
             border-bottom: 3px solid var(--green);
         }
         
-        #table-container { flex: 1; overflow-y: auto; }
+        #table-container {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: auto;
+        }
         
         table {
             width: 100%;
@@ -105,6 +103,13 @@
         tr { cursor: pointer; transition: background 0.1s; }
         tr:hover { background: #002200; }
         tr.active { background: #003300; color: #FFFF00; font-weight: bold; }
+        
+        #right-panel {
+            width: 50%;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
         
         #right-toggle {
             display: flex;
@@ -282,15 +287,6 @@
             padding: 60px 20px;
             font-size: 24px;
         }
-        
-        .error-box {
-            background: #330000;
-            color: #FF6666;
-            padding: 20px;
-            margin: 20px;
-            border: 3px solid #FF0000;
-            font-size: 18px;
-        }
     </style>
 </head>
 <body>
@@ -299,7 +295,6 @@
     </div>
 
     <div id="main-content">
-        <!-- LEFT / TOP PANE - Pairings List -->
         <div id="selection-pane">
             <div id="selection-header">
                 SELECTED BASE: <span id="active-base-display" style="color:#FFFF00;">NONE</span>
@@ -325,14 +320,12 @@
             </div>
         </div>
 
-        <!-- RIGHT / BOTTOM PANE - Toggleable Filters/Details -->
         <div id="right-panel">
             <div id="right-toggle">
                 <button id="toggle-filters" class="toggle-btn active" onclick="showRightPanel('filters')">FILTERS</button>
                 <button id="toggle-details" class="toggle-btn" onclick="showRightPanel('details')">DETAILS</button>
             </div>
             
-            <!-- FILTER VIEW -->
             <div id="filter-view">
                 <div id="base-buttons"></div>
                 
@@ -361,7 +354,6 @@
                 <div id="length-buttons" style="display: flex; gap: 4px; flex-wrap: wrap;"></div>
             </div>
             
-            <!-- DETAILS VIEW -->
             <div id="details-view" style="display: none;">
                 <div id="details-content">
                     <div class="empty">
@@ -822,14 +814,12 @@
         async function loadDefaultJSON() {
             try {
                 const response = await fetch('pairings.json');
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                
+                if (!response.ok) throw new Error('File not found');
                 const jsonData = await response.json();
-                const pairingsArray = jsonData.pairings || jsonData;
-                
+
                 allPairingsByBase = {};
                 
-                pairingsArray.forEach(pairing => {
+                jsonData.pairings.forEach(pairing => {
                     restructurePairing(pairing);
                     pairing.computedEndDate = computeEndDate(pairing);
                     computeOperatingDaysByStart(pairing);
@@ -840,15 +830,7 @@
                 renderBaseButtons();
             } catch (err) {
                 console.error(err);
-                const msg = document.createElement('div');
-                msg.className = 'error-box';
-                msg.innerHTML = `
-                    <strong>ERROR: Could not load pairings.json</strong><br><br>
-                    ${err.message}<br><br>
-                    Make sure the file is named <strong>exactly</strong> "pairings.json" 
-                    and is in the root of the repository.
-                `;
-                document.body.appendChild(msg);
+                alert('ERROR: Could not load pairings.json\nMake sure the file is named exactly "pairings.json" and is in the same folder as index.html.');
             }
         }
 
@@ -857,7 +839,7 @@
             loadDefaultJSON();
             showRightPanel('filters');
             
-            console.log('%cPAIRINGS VIEWER v2.4 — Fully responsive (mobile optimized)', 'color:#00FF00; background:#000000; padding:4px 8px;');
+            console.log('%cPAIRINGS VIEWER v2.4 Loaded Successfully', 'color:#00FF00; background:#000000; padding:4px 8px;');
         };
     </script>
 </body>
