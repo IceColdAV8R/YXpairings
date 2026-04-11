@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>PAIRINGS VIEWER v2.4</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
@@ -12,11 +12,7 @@
             --dark: #000000;
         }
         
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin:0; padding:0; box-sizing:border-box; }
         
         body {
             background: var(--dark);
@@ -24,10 +20,10 @@
             font-family: 'Courier New', Courier, monospace;
             font-size: 17px;
             line-height: 1.35;
-            overflow: hidden;
             height: 100vh;
             display: flex;
             flex-direction: column;
+            overflow: hidden;
         }
         
         .dos-header {
@@ -35,12 +31,8 @@
             color: var(--green);
             padding: 8px 16px;
             border-bottom: 4px solid var(--green);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
             font-size: 22px;
-            letter-spacing: 2px;
-            text-shadow: 0 0 8px var(--green);
+            text-align: center;
         }
         
         #main-content {
@@ -49,13 +41,46 @@
             overflow: hidden;
         }
         
-        #selection-pane {
-            width: 50%;
-            background: var(--dark);
-            border-right: 4px double var(--green);
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
+        /* ===================== DESKTOP LAYOUT ===================== */
+        #selection-pane { width: 50%; border-right: 4px double var(--green); }
+        #right-panel { width: 50%; }
+        
+        /* ===================== MOBILE LAYOUT (< 1050px) ===================== */
+        @media (max-width: 1050px) {
+            #main-content { flex-direction: column; }
+            
+            /* Selection pane = top 30% */
+            #selection-pane {
+                width: 100%;
+                height: 30vh;
+                max-height: 30vh;
+                border-right: none;
+                border-bottom: 4px double var(--green);
+                overflow: hidden;
+            }
+            
+            /* Right panel = bottom 70% */
+            #right-panel {
+                width: 100%;
+                flex: 1;
+                min-height: 70vh;
+            }
+            
+            /* Table scrolls horizontally on mobile */
+            #table-container {
+                overflow-x: auto;
+            }
+            table {
+                min-width: 620px; /* forces horizontal scroll when needed */
+            }
+            
+            /* Larger, more touch-friendly elements */
+            td, th { padding: 12px 8px; font-size: 16px; }
+            .calendar-day { min-height: 42px; padding: 10px 4px; font-size: 15px; }
+            .toggle-btn { padding: 14px 10px; font-size: 17px; }
+            
+            /* Better vertical scrolling in filter/details */
+            #filter-view, #details-view { overflow-y: auto; }
         }
         
         #selection-header {
@@ -64,11 +89,7 @@
             border-bottom: 3px solid var(--green);
         }
         
-        #table-container {
-            flex: 1;
-            overflow-y: auto;
-            overflow-x: auto;
-        }
+        #table-container { flex: 1; overflow-y: auto; }
         
         table {
             width: 100%;
@@ -104,13 +125,6 @@
         tr:hover { background: #002200; }
         tr.active { background: #003300; color: #FFFF00; font-weight: bold; }
         
-        #right-panel {
-            width: 50%;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-        
         #right-toggle {
             display: flex;
             background: #001100;
@@ -142,6 +156,7 @@
         }
         
         #base-buttons {
+            display: flex;
             gap: 12px;
             flex-wrap: nowrap;
             overflow-x: auto;
@@ -161,7 +176,6 @@
             min-width: 80px;
             text-align: center;
             flex-shrink: 0;
-            margin: 5px;
         }
         
         .base-button:hover {
@@ -199,19 +213,12 @@
             cursor: pointer;
         }
         
-        .calendar-day.other-month {
-            color: #006600;
-        }
-        
+        .calendar-day.other-month { color: #006600; }
         .calendar-day.selected {
             background: #003300;
             border: 2px solid #00FF41;
             color: #FFFF00;
             font-weight: bold;
-        }
-        
-        .calendar-day:hover {
-            background: #002200;
         }
         
         #length-buttons {
@@ -236,9 +243,7 @@
             align-items: center;
         }
         
-        .section {
-            margin-bottom: 28px;
-        }
+        .section { margin-bottom: 28px; }
         
         .section h2 {
             margin-bottom: 12px;
@@ -295,6 +300,7 @@
     </div>
 
     <div id="main-content">
+        <!-- Selection Pane -->
         <div id="selection-pane">
             <div id="selection-header">
                 SELECTED BASE: <span id="active-base-display" style="color:#FFFF00;">NONE</span>
@@ -320,6 +326,7 @@
             </div>
         </div>
 
+        <!-- Right Panel -->
         <div id="right-panel">
             <div id="right-toggle">
                 <button id="toggle-filters" class="toggle-btn active" onclick="showRightPanel('filters')">FILTERS</button>
@@ -373,6 +380,7 @@
     </div>
 
     <script>
+        /* ==================== FULL WORKING SCRIPT (unchanged from previous) ==================== */
         let allPairingsByBase = {};
         let activeBase = null;
         let currentPairings = [];
@@ -814,12 +822,14 @@
         async function loadDefaultJSON() {
             try {
                 const response = await fetch('pairings.json');
-                if (!response.ok) throw new Error('File not found');
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                
                 const jsonData = await response.json();
-
+                const pairingsArray = jsonData.pairings || jsonData;
+                
                 allPairingsByBase = {};
                 
-                jsonData.pairings.forEach(pairing => {
+                pairingsArray.forEach(pairing => {
                     restructurePairing(pairing);
                     pairing.computedEndDate = computeEndDate(pairing);
                     computeOperatingDaysByStart(pairing);
@@ -830,7 +840,15 @@
                 renderBaseButtons();
             } catch (err) {
                 console.error(err);
-                alert('ERROR: Could not load pairings.json\nMake sure the file is named exactly "pairings.json" and is in the same folder as index.html.');
+                const msg = document.createElement('div');
+                msg.style.cssText = 'background:#330000;color:#FF6666;padding:20px;margin:20px;border:3px solid #FF0000;font-size:18px;';
+                msg.innerHTML = `
+                    <strong>ERROR: Could not load pairings.json</strong><br><br>
+                    ${err.message}<br><br>
+                    Make sure the file is named <strong>exactly</strong> "pairings.json" 
+                    and is in the root of the repository.
+                `;
+                document.body.appendChild(msg);
             }
         }
 
@@ -839,7 +857,7 @@
             loadDefaultJSON();
             showRightPanel('filters');
             
-            console.log('%cPAIRINGS VIEWER v2.4 Loaded Successfully', 'color:#00FF00; background:#000000; padding:4px 8px;');
+            console.log('%cPAIRINGS VIEWER v2.4 — Mobile responsive (30%/70% split)', 'color:#00FF00; background:#000000; padding:4px 8px;');
         };
     </script>
 </body>
