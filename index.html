@@ -120,6 +120,17 @@
             text-overflow: ellipsis;
             white-space: nowrap;
         }
+
+        .leg-table {
+            table-layout: auto;
+        }
+
+        .leg-table th,
+        .leg-table td {
+            white-space: normal;
+            overflow: visible;
+            text-overflow: clip;
+        }
         
         tr { cursor: pointer; transition: background 0.1s; }
         tr:hover { background: #002200; }
