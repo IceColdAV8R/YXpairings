@@ -317,6 +317,7 @@
                             <th id="sort-release"data-column="release">RELEASE</th>
                             <th id="sort-length" data-column="length">LENGTH</th>
                             <th id="sort-credit" data-column="credit">CREDIT</th>
+                            <th id="sort-efficiency" data-column="efficiency">Sit Index</th>
                         </tr>
                     </thead>
                     <tbody id="pairings-tbody"></tbody>
@@ -326,6 +327,8 @@
             <div style="padding:8px 16px; background:#001100; border-top:3px solid var(--green); font-size:16px;">
                 <span id="pairing-count">0 PAIRINGS LOADED</span>
             </div>
+            <br> 
+            <br>
         </div>
 
         <!-- Right Panel -->
@@ -361,7 +364,15 @@
                 </div>
                 
                 <div id="length-buttons" style="display: flex; gap: 4px; flex-wrap: wrap;"></div>
+
+                <div style="display: flex; justify-content: space-between; align-items: center; font-size: 18px; margin-top: 12px;">
+                    <span class="filter-section-title">MAX SIT (minutes)</span>
+                    <input id="max-sit-input" type="number" value="360" min="0" step="15" 
+                    style="width: 80px; background:#001100; color:var(--green); border:2px solid var(--green); text-align:center; font-size:17px;">
+                    </div>
             </div>
+            <br>
+            <br>
             
             <div id="details-view" style="display: none;">
                 <div id="details-content">
@@ -638,35 +649,47 @@
             applyFilters();
         }
 
-        function applyFilters() {
-            filteredPairings = currentPairings.filter(pairing => {
-                if (selectedLengths.length > 0 && !selectedLengths.includes(pairing.length)) return false;
-                
-                if (selectedFilterDates.length > 0) {
-                    if (dateFilterMode === 'start') {
-                        const startDate = pairing.operatingDates?.[0] || '';
-                        if (!selectedFilterDates.includes(startDate)) return false;
-                    } else if (dateFilterMode === 'end') {
-                        const endDate = pairing.computedEndDate || '';
-                        if (!selectedFilterDates.includes(endDate)) return false;
-                    } else if (dateFilterMode === 'not') {
-                        const map = pairing.operatingDaysByStart || {};
-                        let hasSafeInstance = false;
-                        for (const daysArray of Object.values(map)) {
-                            const touchesForbidden = daysArray.some(d => selectedFilterDates.includes(d));
-                            if (!touchesForbidden) {
-                                hasSafeInstance = true;
-                                break;
-                            }
-                        }
-                        if (!hasSafeInstance) return false;
+function applyFilters() {
+    const maxSitInput = document.getElementById('max-sit-input');
+    const maxSitLimit = maxSitInput ? parseInt(maxSitInput.value) || 0 : 0;
+
+    filteredPairings = currentPairings.filter(pairing => {
+        // Length filter
+        if (selectedLengths.length > 0 && !selectedLengths.includes(pairing.length)) return false;
+
+        // Date filter
+        if (selectedFilterDates.length > 0) {
+            if (dateFilterMode === 'start') {
+                const startDate = pairing.operatingDates?.[0] || '';
+                if (!selectedFilterDates.includes(startDate)) return false;
+            } else if (dateFilterMode === 'end') {
+                const endDate = pairing.computedEndDate || '';
+                if (!selectedFilterDates.includes(endDate)) return false;
+            } else if (dateFilterMode === 'not') {
+                const map = pairing.operatingDaysByStart || {};
+                let hasSafeInstance = false;
+                for (const daysArray of Object.values(map)) {
+                    const touchesForbidden = daysArray.some(d => selectedFilterDates.includes(d));
+                    if (!touchesForbidden) {
+                        hasSafeInstance = true;
+                        break;
                     }
                 }
-                return true;
-            });
-            
-            renderPairingsTable();
+                if (!hasSafeInstance) return false;
+            }
         }
+
+        // NEW: Max Sit filter
+        if (maxSitLimit > 0) {
+            const grntNum = parseInt(pairing.GRNTmax) || 0;
+            if (grntNum > maxSitLimit) return false;
+        }
+
+        return true;
+    });
+    
+    renderPairingsTable();
+}
 
         function renderPairingsTable() {
             const tbody = document.getElementById('pairings-tbody');
@@ -682,6 +705,7 @@
                         case 'release':valA = getReleaseTime(a); valB = getReleaseTime(b); break;
                         case 'length': valA = a.length || 0; valB = b.length || 0; break;
                         case 'credit': valA = parseInt(a.totals?.TrCDT) || 0; valB = parseInt(b.totals?.TrCDT) || 0; break;
+                        case 'efficiency': valA = a.efficiencyIndex || 0; valB = b.efficiencyIndex || 0; break;
                     }
                     if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
                     if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
@@ -702,6 +726,7 @@
                     <td>${release}</td>
                     <td>${pairing.length} days</td>
                     <td>${credit}</td>
+                    <td>${pairing.efficiencyIndex.toFixed(2)}</td>
                 `;
 
                 row.onclick = () => {
@@ -821,6 +846,34 @@
             });
         }
 
+        function computeGRNTStats(pairing) {
+    let maxGrntNum = 0;
+    let totalSittableLegs = 0;
+    let longSits = 0;
+
+    pairing.days.forEach(day => {
+        if (day.legs) {
+            day.legs.forEach((leg, idx) => {
+                // Only legs that have GRNT (exclude last leg of each day)
+                if (idx < day.legs.length - 1 && leg.GRNT) {
+                    totalSittableLegs++;
+                    const grntNum = parseInt(leg.GRNT) || 0;
+                    if (grntNum > maxGrntNum) maxGrntNum = grntNum;
+                    if (grntNum > 100) longSits++;
+                }
+            });
+        }
+    });
+
+    // GRNTmax as HHMM string
+    const hours = Math.floor(maxGrntNum / 60);
+    const mins = maxGrntNum % 60;
+    pairing.GRNTmax = hours.toString().padStart(2, '0') + mins.toString().padStart(2, '0');
+
+    // efficiencyIndex (0 to 1)
+    pairing.efficiencyIndex = totalSittableLegs > 0 ? longSits / totalSittableLegs : 0;
+}
+
         async function loadDefaultJSON() {
             try {
                 const response = await fetch('pairings.json');
@@ -835,6 +888,7 @@
                     restructurePairing(pairing);
                     pairing.computedEndDate = computeEndDate(pairing);
                     computeOperatingDaysByStart(pairing);
+                    computeGRNTStats(pairing);
                     if (!allPairingsByBase[pairing.base]) allPairingsByBase[pairing.base] = [];
                     allPairingsByBase[pairing.base].push(pairing);
                 });
@@ -859,7 +913,10 @@
             loadDefaultJSON();
             showRightPanel('filters');
             
-            console.log('%cPAIRINGS VIEWER v2.4 — Mobile responsive (30%/70% split)', 'color:#00FF00; background:#000000; padding:4px 8px;');
+            const maxSitInput = document.getElementById('max-sit-input');
+if (maxSitInput) {
+    maxSitInput.addEventListener('input', applyFilters);
+}
         };
     </script>
 </body>
