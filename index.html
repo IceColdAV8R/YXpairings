@@ -43,7 +43,12 @@
         
         /* ===================== DESKTOP LAYOUT ===================== */
         #selection-pane { width: 50%; border-right: 4px double var(--green);  overflow-x: scroll;}
-        #right-panel { width: 50%; }
+        #right-panel { 
+            width: 50%;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;           /* Critical fix for scrolling */
+        }
         
         /* ===================== MOBILE LAYOUT (< 1050px) ===================== */
         @media (max-width: 1050px) {
@@ -246,6 +251,7 @@
             padding: 20px;
             background: var(--dark);
             padding-bottom:30px;
+            display: block;
         }
         
         .details-header {
@@ -410,7 +416,7 @@
     </div>
 
     <script>
-        /* ==================== FULL WORKING SCRIPT (unchanged from previous) ==================== */
+        /* Full script remains the same as current version */
         let allPairingsByBase = {};
         let activeBase = null;
         let currentPairings = [];
