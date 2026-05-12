@@ -677,8 +677,8 @@ function applyFilters() {
         // Date filter
         if (selectedFilterDates.length > 0) {
             if (dateFilterMode === 'start') {
-                const startDate = pairing.operatingDates?.[0] || '';
-                if (!selectedFilterDates.includes(startDate)) return false;
+                const hasMatchingStart = pairing.operatingDates?.some(d => selectedFilterDates.includes(d)) ?? false;
+                if (!hasMatchingStart) return false;
             } else if (dateFilterMode === 'end') {
                 const endDate = pairing.computedEndDate || '';
                 if (!selectedFilterDates.includes(endDate)) return false;
