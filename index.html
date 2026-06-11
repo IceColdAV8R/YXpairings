@@ -890,26 +890,30 @@ function applyFilters() {
     pairing.efficiencyIndex = totalSittableLegs > 0 ? longSits / totalSittableLegs : 0;
 }
 
-        async function loadDefaultJSON() {
-            try {
-                const response = await fetch('pairings.json');
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                
-                const jsonData = await response.json();
-                const pairingsArray = jsonData.pairings || jsonData;
-                
-                allPairingsByBase = {};
-                
-                pairingsArray.forEach(pairing => {
-                    restructurePairing(pairing);
-                    pairing.computedEndDate = computeEndDate(pairing);
-                    computeOperatingDaysByStart(pairing);
-                    computeGRNTStats(pairing);
-                    if (!allPairingsByBase[pairing.base]) allPairingsByBase[pairing.base] = [];
-                    allPairingsByBase[pairing.base].push(pairing);
-                });
+async function loadDefaultJSON() {
+    try {
+        // === MANUAL VERSION CONTROL FOR CACHE BUSTING ===
+        const CURRENT_VERSION = 'July2026';   // ← UPDATE THIS EVERY TIME YOU UPLOAD A NEW pairings.json
+        
+        const response = await fetch(`pairings.json?v=${CURRENT_VERSION}`);
+        
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        
+        const jsonData = await response.json();
+        const pairingsArray = jsonData.pairings || jsonData;
+        
+        allPairingsByBase = {};
+        
+        pairingsArray.forEach(pairing => {
+            restructurePairing(pairing);
+            pairing.computedEndDate = computeEndDate(pairing);
+            computeOperatingDaysByStart(pairing);
+            computeGRNTStats(pairing);
+            if (!allPairingsByBase[pairing.base]) allPairingsByBase[pairing.base] = [];
+            allPairingsByBase[pairing.base].push(pairing);
+        });
 
-                renderBaseButtons();
+        renderBaseButtons();
             } catch (err) {
                 console.error(err);
                 const msg = document.createElement('div');
