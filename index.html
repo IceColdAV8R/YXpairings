@@ -695,10 +695,10 @@ function applyFilters() {
             }
         }
 
-        // NEW: Max Sit filter
+        // Max Sit filter (input is minutes; GRNTmaxMinutes is minutes)
         if (maxSitLimit > 0) {
-            const grntNum = parseInt(pairing.GRNTmax) || 0;
-            if (grntNum > maxSitLimit) return false;
+            const grntMinutes = pairing.GRNTmaxMinutes ?? parseGrntToMinutes(pairing.GRNTmax);
+            if (grntMinutes > maxSitLimit) return false;
         }
 
         return true;
@@ -862,33 +862,45 @@ function applyFilters() {
             });
         }
 
-        function computeGRNTStats(pairing) {
-    let maxGrntNum = 0;
-    let totalSittableLegs = 0;
-    let longSits = 0;
+        // GRNT in pairings.json is HHmm (e.g. "417" = 4h17m, "40" = 40m), not total minutes.
+        function parseGrntToMinutes(grnt) {
+            if (grnt === undefined || grnt === null || grnt === '') return 0;
+            const str = grnt.toString().padStart(4, '0');
+            const hours = parseInt(str.slice(0, -2), 10) || 0;
+            const mins = parseInt(str.slice(-2), 10) || 0;
+            return hours * 60 + mins;
+        }
 
-    pairing.days.forEach(day => {
-        if (day.legs) {
-            day.legs.forEach((leg, idx) => {
-                // Only legs that have GRNT (exclude last leg of each day)
-                if (idx < day.legs.length - 1 && leg.GRNT) {
-                    totalSittableLegs++;
-                    const grntNum = parseInt(leg.GRNT) || 0;
-                    if (grntNum > maxGrntNum) maxGrntNum = grntNum;
-                    if (grntNum > 100) longSits++;
+        function computeGRNTStats(pairing) {
+            let maxGrntMinutes = 0;
+            let totalSittableLegs = 0;
+            let longSits = 0;
+
+            pairing.days.forEach(day => {
+                if (day.legs) {
+                    day.legs.forEach((leg, idx) => {
+                        // Only legs that have GRNT (exclude last leg of each day)
+                        if (idx < day.legs.length - 1 && leg.GRNT) {
+                            totalSittableLegs++;
+                            const grntMinutes = parseGrntToMinutes(leg.GRNT);
+                            if (grntMinutes > maxGrntMinutes) maxGrntMinutes = grntMinutes;
+                            // Long sit threshold: > 100 minutes
+                            if (grntMinutes > 100) longSits++;
+                        }
+                    });
                 }
             });
+
+            // Store max sit in minutes for filtering (MAX SIT input is minutes)
+            pairing.GRNTmaxMinutes = maxGrntMinutes;
+            // GRNTmax as HHmm string for display
+            const hours = Math.floor(maxGrntMinutes / 60);
+            const mins = maxGrntMinutes % 60;
+            pairing.GRNTmax = hours.toString().padStart(2, '0') + mins.toString().padStart(2, '0');
+
+            // efficiencyIndex (0 to 1)
+            pairing.efficiencyIndex = totalSittableLegs > 0 ? longSits / totalSittableLegs : 0;
         }
-    });
-
-    // GRNTmax as HHMM string
-    const hours = Math.floor(maxGrntNum / 60);
-    const mins = maxGrntNum % 60;
-    pairing.GRNTmax = hours.toString().padStart(2, '0') + mins.toString().padStart(2, '0');
-
-    // efficiencyIndex (0 to 1)
-    pairing.efficiencyIndex = totalSittableLegs > 0 ? longSits / totalSittableLegs : 0;
-}
 
 async function loadDefaultJSON() {
     try {
